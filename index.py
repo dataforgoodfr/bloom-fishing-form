@@ -97,31 +97,25 @@ image2 = mapping[option2]
 # assert os.path.exists(image1), f"Image {image1} does not exist"
 
 
-col1,col2 = st.columns(2)
-
-with col1:
-    st.image(image1,use_column_width=True)
-    st.markdown(f"#### (1) {title1}\n{desc1}")
-with col2:
-    st.image(image2,use_column_width=True)
-    st.markdown(f"#### (2) {title2}\n{desc2}")
-
-col3,col4 = st.columns(2)
-
-message_button = "is more damaging" if lang == "EN" else "est plus destructeur" 
-
-
 def validate_option(result):
     print(result)
     st.session_state["last_result"] = result
     st.session_state["index"] += 1
 
 
-with col3:
-    submitted1 = st.button(f"1 {message_button}",on_click=validate_option, args=({"winner":option1,"loser":option2,"n_trials":index},))
+message_button = "Is more damaging" if lang == "EN" else "Est plus destructeur" 
 
-with col4:
-    submitted2 = st.button(f"2 {message_button}",on_click=validate_option, args=({"winner":option2,"loser":option1,"n_trials":index},))
+col1,col2 = st.columns(2)
+
+with col1:
+    st.image(image1,use_column_width=True)
+    submitted1 = st.button(f"{message_button}",on_click=validate_option, args=({"winner":option1,"loser":option2,"n_trials":index},),key = "button1")
+    st.markdown(f"#### {title1}\n{desc1}")
+with col2:
+    st.image(image2,use_column_width=True)
+    submitted2 = st.button(f"{message_button}",on_click=validate_option, args=({"winner":option2,"loser":option1,"n_trials":index},),key = "button2")
+    st.markdown(f"#### {title2}\n{desc2}")
+
 
 st.write(f"Progress: {index}/{len(combinations)}")
 
