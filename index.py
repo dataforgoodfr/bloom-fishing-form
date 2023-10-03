@@ -4,7 +4,15 @@ import itertools
 import numpy as np
 import os
 from PIL import Image
+from supabase import create_client, Client
+import uuid
 
+from dotenv import load_dotenv
+load_dotenv()
+
+# ----------------------------------------------------------------------
+# CONFIG
+# ----------------------------------------------------------------------
 
 st.set_page_config(page_title="Bloom", page_icon="🎣", layout="centered", initial_sidebar_state="collapsed", menu_items=None)
 
@@ -19,6 +27,38 @@ local_css("styles.css")
 # st.sidebar.image("https://upload.wikimedia.org/wikipedia/fr/e/e8/Logo_BLOOM.jpg",use_column_width=True)
 
 image_folder_path = "assets/images"
+
+
+# ----------------------------------------------------------------------
+# RESSOURCES
+# ----------------------------------------------------------------------
+
+
+@st.cache_resource
+def get_client_supabase():
+    url: str = os.environ.get("SUPABASE_URL")
+    key: str = os.environ.get("SUPABASE_KEY")
+    client: Client = create_client(url, key)
+    return client
+
+def log_result(client,language,first_name,last_name,email,winner,loser,n_trials):
+
+    # Generate result uuid
+    # result_uuid = str(uuid.uuid4())
+
+    record = {
+        "language":language,
+        "first_name":first_name,
+        "last_name":last_name,
+        "email":email,
+        "winner":winner,
+        "loser":loser,
+        "n_trials":n_trials,
+    }
+
+    print("Logging record:",record)
+    data, count = client.table('records').insert(record).execute()
+    return data,count
 
 def load_image(path):
 
@@ -50,22 +90,22 @@ content = {
 }
 
 
-
 @st.cache_data
 def load_data(lang):
     data = pd.read_excel("assets/descriptions_engins.xlsx").head(27)
     mapping = data[[lang,"path_image"]].set_index(lang)["path_image"].to_dict()
     mapping = {k:load_image(v) for k,v in mapping.items()}
+    data = data.set_index(lang).T.to_dict()
     return mapping,data
 
-def log_user(language,name,surname,email):
+def log_user(language,first_name,last_name,email):
 
-    if all([language, name, surname, email]):
+    if all([language, first_name, last_name, email]):
 
-        print(language,name,surname,email)
+        print(language,first_name,last_name,email)
         st.session_state.language = language
-        st.session_state.name = name
-        st.session_state.surname = surname
+        st.session_state.first_name = first_name
+        st.session_state.last_name = last_name
         st.session_state.email = email
         st.session_state.started = True
         st.session_state.date = pd.Timestamp.now()
@@ -76,6 +116,13 @@ def log_user(language,name,surname,email):
         else:
             st.error("Veuillez remplir tous les champs.")
 
+
+# ----------------------------------------------------------------------
+# LOGIN
+# ----------------------------------------------------------------------
+
+
+
 if "started" not in st.session_state:
     title = st.container()
     language = st.selectbox("Language", ["English", "Français"])
@@ -83,48 +130,58 @@ if "started" not in st.session_state:
     with title:
         st.write(f"### {content[lang]['title']}")
 
-    name = st.text_input("First name / Prénom")
-    surname = st.text_input("Last name / Nom")
+    first_name = st.text_input("First name / Prénom")
+    last_name = st.text_input("Last name / Nom")
     email = st.text_input("Email")
-    start = st.button("Start",on_click=log_user,args=(language,name,surname,email))
+    start = st.button("Start",on_click=log_user,args=(language,first_name,last_name,email))
+
+
+
+# ----------------------------------------------------------------------
+# EXPERIMENT
+# ----------------------------------------------------------------------
+
+
 else:
     # Display user information in the sidebar if they've started
-
     user = {
         "language":st.session_state.language,
-        "name":st.session_state.name,
-        "surname":st.session_state.surname,
+        "first_name":st.session_state.first_name,
+        "last_name":st.session_state.last_name,
         "email":st.session_state.email,
         "date":st.session_state.date,
     }
 
-    st.sidebar.write(user["name"])
-    st.sidebar.write(user["surname"])
+    st.sidebar.write(user["first_name"])
+    st.sidebar.write(user["last_name"])
     language = st.session_state.language
     lang = "EN" if language == "English" else "FR"
 
+    # Load the data and the client for the database using cached resources
+    client = get_client_supabase()
     mapping,data = load_data(lang)
     values = list(mapping.keys())
 
+    # Generate all the combinations of the data
     combinations = list(itertools.combinations(values,2))
     np.random.shuffle(combinations)
 
-
+    # Get the index of the current question
     if "index" not in st.session_state:
         st.session_state["index"] = 0
     index = st.session_state["index"]
 
+    # Display the title and the content
     st.write(f"### {content[lang]['title']}")
     st.info(content[lang]["content"])
 
-    # if "last_result" in st.session_state:
-    #     st.write(st.session_state['last_result'])
-
-
+    # Get the two options
     combination = list(combinations[index])
     np.random.shuffle(combination)
     option1,option2 = combination
 
+    # Get the title and the description of the options
+    # Parse the string to get the title and the description
     title1,desc1 = option1.split(":",1)
     title2,desc2 = option2.split(":",1)
     title1 = title1.strip()
@@ -132,22 +189,39 @@ else:
     desc1 = desc1.strip().capitalize()
     desc2 = desc2.strip().capitalize()
 
+    # Get the images
     image1 = mapping[option1]
     image2 = mapping[option2]
 
-    # image1 = os.path.join(image_folder_path,mapping[option1])
-    # image2 = os.path.join(image_folder_path,mapping[option2])
-    # assert os.path.exists(image1), f"Image {image1} does not exist"
-
 
     def validate_option(result):
+
+        # Get the result and find the technique id
+        winner = result["winner"]
+        loser = result["loser"]
+        winner = data[winner]["name"]
+        loser = data[loser]["name"]
+        n_trials = result["n_trials"]
         print(result)
+
+        # Get the user information
+        language = st.session_state.language
+        first_name = st.session_state.first_name
+        last_name = st.session_state.last_name
+        email = st.session_state.email
+
+        # Log the result in the database
+        log_result(client,language,first_name,last_name,email,winner,loser,n_trials)
+
+        # Update the session state
         st.session_state["last_result"] = result
         st.session_state["index"] += 1
 
 
+    # Get the button message depending on the language
     message_button = "Is more damaging" if lang == "EN" else "Est plus destructeur" 
 
+    # Display the two options and the images
     col1,col2 = st.columns(2)
 
     with col1:

@@ -2,3 +2,5 @@ openpyxl
 pandas
 numpy
 pillow
+supabase
+python-dotenv
