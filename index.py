@@ -139,9 +139,9 @@ def get_existing_combinations(email):
 
 if "started" not in st.session_state:
 
-    _,col_image,_ = st.columns([1,2,1])
-    col_image.image("assets/images/1-CHALUT BENTHIQUE A PANNEAUX-transparent.png")
+    # _,col_image,_ = st.columns([1,2,1])
     title = st.container()
+    st.image("assets/images/1-CHALUT BENTHIQUE A PANNEAUX-transparent.png")
 
     language = st.selectbox("Language", ["English", "Français"])
     lang = "EN" if language == "English" else "FR"
