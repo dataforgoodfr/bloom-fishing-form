@@ -126,7 +126,7 @@ def get_existing_combinations(email):
     data = pd.DataFrame(data[1])
 
     # Get the combinations
-    existing_combinations = {frozenset([row['winner'], row['loser']]) for _, row in data.iterrows()}
+    existing_combinations = {frozenset([row['option_left'], row['option_right']]) for _, row in data.iterrows()}
 
     return existing_combinations
     
