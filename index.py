@@ -41,7 +41,7 @@ def get_client_supabase():
     client: Client = create_client(url, key)
     return client
 
-def log_result(client,language,first_name,last_name,email,option_left,option_right,n_trials,result,source):
+def log_result(client,language,first_name,last_name,email,option_left,option_right,n_trials,result,source = ""):
 
     # Generate result uuid
     # result_uuid = str(uuid.uuid4())
@@ -238,6 +238,8 @@ else:
         query_params = st.experimental_get_query_params()
         if "utm_source" in query_params:
             source = query_params["utm_source"][0]
+        else:
+            source = ""
 
         # Get the result and find the technique id
         option_left = record["option_left"]
