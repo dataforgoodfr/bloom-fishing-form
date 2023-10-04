@@ -14,7 +14,7 @@ load_dotenv()
 # CONFIG
 # ----------------------------------------------------------------------
 
-st.set_page_config(page_title="Bloom", page_icon="🎣", layout="centered", initial_sidebar_state="collapsed", menu_items=None)
+st.set_page_config(page_title="Fishing Classification", page_icon="🎣", layout="centered", initial_sidebar_state="collapsed", menu_items=None)
 
 def local_css(file_name):
     with open(file_name) as f:
@@ -81,11 +81,11 @@ def load_image(path):
 content = {
     "FR":{
         "title":"Quelle est votre perception de l'impact des différents engins de pêche sur les écosystèmes marins ?",
-        "content":"Pour chaque couple d'engins de pêche, cliquez sur celui que vous percevez comme ayant le plus d'impact négatif sur l'environnement.\n\nIl faut approximativement 20-25 minutes pour compléter le questionnaire, mais à tout moment, vous pouvez le quitter et y revenir plus tard. Vos réponses seront sauvegardées.",
+        "content":"Pour chaque couple d'engins de pêche, cliquez sur celui que vous percevez comme ayant le plus d'impact négatif sur l'environnement.\n\nIl faut approximativement 30-40 minutes pour compléter le questionnaire, mais à tout moment, vous pouvez le quitter. Vos réponses seront sauvegardées.",
     },
     "EN":{
         "title":"What is your perception of the impact of different fishing gears on marine ecosystems?",
-        "content":"For each pair of fishing gears, click on the one you perceive as having the most negative impact on the environment.\n\nIt takes approximately 20-25 minutes to complete the questionnaire, but at any time, you can leave it and come back later. Your answers will be saved.",
+        "content":"For each pair of fishing gears, click on the one you perceive as having the most negative impact on the environment.\n\nIt takes approximately 30-40 minutes to complete the questionnaire, but at any time, you can leave it. Your answers will be saved.",
     },
 }
 
@@ -124,17 +124,20 @@ def log_user(language,first_name,last_name,email):
 
 
 if "started" not in st.session_state:
+
+    _,col_image,_ = st.columns([1,2,1])
+    col_image.image("assets/images/1-CHALUT BENTHIQUE A PANNEAUX-transparent.png")
     title = st.container()
+
     language = st.selectbox("Language", ["English", "Français"])
     lang = "EN" if language == "English" else "FR"
     with title:
         st.write(f"### {content[lang]['title']}")
 
-    first_name = st.text_input("First name / Prénom")
-    last_name = st.text_input("Last name / Nom")
-    email = st.text_input("Email")
-    start = st.button("Start",on_click=log_user,args=(language,first_name,last_name,email))
-
+    first_name = st.text_input("First name" if lang == "EN" else "Prénom")
+    last_name = st.text_input("Last name" if lang == "EN" else "Nom")
+    email = st.text_input("Email" if lang == "EN" else "Email")
+    start = st.button("Start" if lang == "EN" else "Commencer",on_click=log_user,args=(language,first_name,last_name,email))
 
 
 # ----------------------------------------------------------------------
@@ -219,7 +222,7 @@ else:
 
 
     # Get the button message depending on the language
-    message_button = "Is more damaging" if lang == "EN" else "Est plus destructeur" 
+    message_button = "Has the most impact" if lang == "EN" else "A le plus d'impact" 
 
     # Display the two options and the images
     col1,col2 = st.columns(2)
@@ -234,5 +237,6 @@ else:
         st.markdown(f"#### {title2}\n{desc2}")
 
 
-    st.write(f"Progress: {index}/{len(combinations)}")
+    st.progress(index/len(combinations),text=f"{'Progress' if lang == 'EN' else 'Avancement'}: {index}/{len(combinations)}")
+    # st.write(f"{'Progress' if lang == 'EN' else 'Avancement'}: {index}/{len(combinations)}")
 
