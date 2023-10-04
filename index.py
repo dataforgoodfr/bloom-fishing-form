@@ -41,7 +41,7 @@ def get_client_supabase():
     client: Client = create_client(url, key)
     return client
 
-def log_result(client,language,first_name,last_name,email,winner,loser,n_trials):
+def log_result(client,language,first_name,last_name,email,option_left,option_right,n_trials,result):
 
     # Generate result uuid
     # result_uuid = str(uuid.uuid4())
@@ -51,9 +51,10 @@ def log_result(client,language,first_name,last_name,email,winner,loser,n_trials)
         "first_name":first_name,
         "last_name":last_name,
         "email":email,
-        "winner":winner,
-        "loser":loser,
+        "option_left":option_left,
+        "option_right":option_right,
         "n_trials":n_trials,
+        "result":result,
     }
 
     print("Logging record:",record)
@@ -93,10 +94,10 @@ content = {
 @st.cache_data
 def load_data(lang):
     data = pd.read_excel("assets/descriptions_engins.xlsx").head(27)
-    mapping = data[[lang,"path_image"]].set_index(lang)["path_image"].to_dict()
-    mapping = {k:load_image(v) for k,v in mapping.items()}
-    data = data.set_index(lang).T.to_dict()
-    return mapping,data
+    mapping = data[["name","path_image"]].set_index("name")["path_image"].to_dict()
+    mapping_images = {k:load_image(v) for k,v in mapping.items()}
+    mapping_data = data.set_index("name").T.to_dict()
+    return mapping_images,mapping_data
 
 def log_user(language,first_name,last_name,email):
 
@@ -116,6 +117,18 @@ def log_user(language,first_name,last_name,email):
         else:
             st.error("Veuillez remplir tous les champs.")
 
+
+def get_existing_combinations(email):
+
+    # Assuming 'supabase' is your Supabase client
+    data, count = client.table('records').select('*').eq('email', email).execute()
+    data = pd.DataFrame(data[1])
+
+    # Get the combinations
+    existing_combinations = {frozenset([row['winner'], row['loser']]) for _, row in data.iterrows()}
+
+    return existing_combinations
+    
 
 # ----------------------------------------------------------------------
 # LOGIN
@@ -155,24 +168,44 @@ else:
         "date":st.session_state.date,
     }
 
-    st.sidebar.write(user["first_name"])
-    st.sidebar.write(user["last_name"])
     language = st.session_state.language
     lang = "EN" if language == "English" else "FR"
 
+    st.sidebar.write("### Logged in as:" if lang == "EN" else "### Connecté en tant que:")
+    st.sidebar.write(user["first_name"])
+    st.sidebar.write(user["last_name"])
+    st.sidebar.write(user["email"])
+
+
     # Load the data and the client for the database using cached resources
     client = get_client_supabase()
-    mapping,data = load_data(lang)
-    values = list(mapping.keys())
+    mapping_images,mapping_data = load_data(lang)
+    values = list(mapping_data.keys())
 
     # Generate all the combinations of the data
-    combinations = list(itertools.combinations(values,2))
-    np.random.shuffle(combinations)
+    if "combinations" not in st.session_state:
+        combinations = list(itertools.combinations(values,2))
+        np.random.shuffle(combinations)
+    else:
+        combinations = st.session_state.combinations
 
     # Get the index of the current question
     if "index" not in st.session_state:
         st.session_state["index"] = 0
     index = st.session_state["index"]
+
+    if index == 0:
+
+        existing_combinations = get_existing_combinations(user["email"])
+
+        if len(existing_combinations) > 0:
+
+            # Filter out combinations from the list if they are in the set of existing combinations
+            new_combinations = [combo for combo in combinations if frozenset(combo) not in existing_combinations]
+            new_index = len(combinations) - len(new_combinations)
+            combinations = new_combinations
+            st.session_state["combinations"] = combinations
+
 
     # Display the title and the content
     st.write(f"### {content[lang]['title']}")
@@ -181,7 +214,9 @@ else:
     # Get the two options
     combination = list(combinations[index])
     np.random.shuffle(combination)
-    option1,option2 = combination
+    id1,id2 = combination
+    option1 = mapping_data[id1][lang]
+    option2 = mapping_data[id2][lang]
 
     # Get the title and the description of the options
     # Parse the string to get the title and the description
@@ -193,19 +228,18 @@ else:
     desc2 = desc2.strip().capitalize()
 
     # Get the images
-    image1 = mapping[option1]
-    image2 = mapping[option2]
+    image1 = mapping_images[id1]
+    image2 = mapping_images[id2]
 
 
-    def validate_option(result):
+    def validate_option(record):
 
         # Get the result and find the technique id
-        winner = result["winner"]
-        loser = result["loser"]
-        winner = data[winner]["name"]
-        loser = data[loser]["name"]
-        n_trials = result["n_trials"]
-        print(result)
+        option_left = record["option_left"]
+        option_right = record["option_right"]
+        result = record["result"]
+        n_trials = record["n_trials"]
+        print(record)
 
         # Get the user information
         language = st.session_state.language
@@ -214,10 +248,10 @@ else:
         email = st.session_state.email
 
         # Log the result in the database
-        log_result(client,language,first_name,last_name,email,winner,loser,n_trials)
+        log_result(client,language,first_name,last_name,email,option_left,option_right,n_trials,result)
 
         # Update the session state
-        st.session_state["last_result"] = result
+        st.session_state["last_result"] = record
         st.session_state["index"] += 1
 
 
@@ -225,15 +259,24 @@ else:
     message_button = "Has the most impact" if lang == "EN" else "A le plus d'impact" 
 
     # Display the two options and the images
-    col1,col2 = st.columns(2)
+    col1,col0,col2 = st.columns([2,1,2])
 
     with col1:
         st.image(image1,use_column_width=True)
-        submitted1 = st.button(f"{message_button}",on_click=validate_option, args=({"winner":option1,"loser":option2,"n_trials":index},),key = "button1")
-        st.markdown(f"#### {title1}\n{desc1}")
+    with col0:
+        pass
     with col2:
         st.image(image2,use_column_width=True)
-        submitted2 = st.button(f"{message_button}",on_click=validate_option, args=({"winner":option2,"loser":option1,"n_trials":index},),key = "button2")
+
+    col1,col0,col2 = st.columns(3)
+
+    with col1:
+        submitted1 = st.button(f"{message_button}",on_click=validate_option, args=({"option_left":id1,"option_right":id2,"n_trials":index,"result":"left"},),key = "button1",use_container_width = True)
+        st.markdown(f"#### {title1}\n{desc1}")
+    with col0:
+        st.button("Same impact" if lang == "EN" else "Même impact",on_click=validate_option, args=({"option_left":id1,"option_right":id2,"n_trials":index,"result":"same"},),key = "button0",use_container_width = True)
+    with col2:
+        submitted2 = st.button(f"{message_button}",on_click=validate_option, args=({"option_left":id1,"option_right":id2,"n_trials":index,"result":"right"},),key = "button2",use_container_width = True)
         st.markdown(f"#### {title2}\n{desc2}")
 
 
