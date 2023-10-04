@@ -41,7 +41,7 @@ def get_client_supabase():
     client: Client = create_client(url, key)
     return client
 
-def log_result(client,language,first_name,last_name,email,option_left,option_right,n_trials,result):
+def log_result(client,language,first_name,last_name,email,option_left,option_right,n_trials,result,source):
 
     # Generate result uuid
     # result_uuid = str(uuid.uuid4())
@@ -55,6 +55,7 @@ def log_result(client,language,first_name,last_name,email,option_left,option_rig
         "option_right":option_right,
         "n_trials":n_trials,
         "result":result,
+        "source":source,
     }
 
     print("Logging record:",record)
@@ -234,6 +235,10 @@ else:
 
     def validate_option(record):
 
+        query_params = st.experimental_get_query_params()
+        if "utm_source" in query_params:
+            source = query_params["utm_source"][0]
+
         # Get the result and find the technique id
         option_left = record["option_left"]
         option_right = record["option_right"]
@@ -248,7 +253,7 @@ else:
         email = st.session_state.email
 
         # Log the result in the database
-        log_result(client,language,first_name,last_name,email,option_left,option_right,n_trials,result)
+        log_result(client,language,first_name,last_name,email,option_left,option_right,n_trials,result,source)
 
         # Update the session state
         st.session_state["last_result"] = record
