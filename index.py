@@ -98,7 +98,17 @@ def load_data(lang):
     mapping = data[["name","path_image"]].set_index("name")["path_image"].to_dict()
     mapping_images = {k:load_image(v) for k,v in mapping.items()}
     mapping_data = data.set_index("name").T.to_dict()
-    return mapping_images,mapping_data
+
+    values = list(mapping_data.keys())
+
+    # Generate all the combinations of the data
+    if "combinations" not in st.session_state:
+        combinations = list(itertools.combinations(values,2))
+        np.random.shuffle(combinations)
+    else:
+        combinations = st.session_state.combinations
+
+    return mapping_images,mapping_data,combinations
 
 def log_user(language,first_name,last_name,email):
 
@@ -129,7 +139,9 @@ def get_existing_combinations(email):
     existing_combinations = {frozenset([row['option_left'], row['option_right']]) for _, row in data.iterrows()}
 
     return existing_combinations
-    
+
+
+
 
 # ----------------------------------------------------------------------
 # LOGIN
@@ -148,9 +160,9 @@ if "started" not in st.session_state:
     with title:
         st.write(f"### {content[lang]['title']}")
 
-    first_name = st.text_input("First name" if lang == "EN" else "Prénom")
-    last_name = st.text_input("Last name" if lang == "EN" else "Nom")
-    email = st.text_input("Email" if lang == "EN" else "Email")
+    first_name = st.text_input("First name" if lang == "EN" else "Prénom",autocomplete="off")
+    last_name = st.text_input("Last name" if lang == "EN" else "Nom",autocomplete="off")
+    email = st.text_input("Email" if lang == "EN" else "Email",autocomplete="off")
     start = st.button("Start" if lang == "EN" else "Commencer",on_click=log_user,args=(language,first_name,last_name,email))
 
 
@@ -180,113 +192,114 @@ else:
 
     # Load the data and the client for the database using cached resources
     client = get_client_supabase()
-    mapping_images,mapping_data = load_data(lang)
-    values = list(mapping_data.keys())
+    mapping_images,mapping_data,combinations = load_data(lang)
 
-    # Generate all the combinations of the data
-    if "combinations" not in st.session_state:
-        combinations = list(itertools.combinations(values,2))
-        np.random.shuffle(combinations)
-    else:
-        combinations = st.session_state.combinations
+    total_combinations = len(combinations)
 
     # Get the index of the current question
     if "index" not in st.session_state:
         st.session_state["index"] = 0
     index = st.session_state["index"]
+    print("Index:",index)
 
-    if index == 0:
+    existing_combinations = get_existing_combinations(user["email"])
 
-        existing_combinations = get_existing_combinations(user["email"])
-
-        if len(existing_combinations) > 0:
-
-            # Filter out combinations from the list if they are in the set of existing combinations
-            new_combinations = [combo for combo in combinations if frozenset(combo) not in existing_combinations]
-            new_index = len(combinations) - len(new_combinations)
-            combinations = new_combinations
-            st.session_state["combinations"] = combinations
+    if len(existing_combinations) > 0:
+        # Filter out combinations from the list if they are in the set of existing combinations
+        new_combinations = [combo for combo in combinations if frozenset(combo) not in existing_combinations]
+        new_index = len(combinations) - len(new_combinations)
+        combinations = new_combinations
+        st.session_state["combinations"] = combinations
+    
+    else:
+        new_index = 0
 
 
     # Display the title and the content
     st.write(f"### {content[lang]['title']}")
     st.info(content[lang]["content"])
 
-    # Get the two options
-    combination = list(combinations[index])
-    np.random.shuffle(combination)
-    id1,id2 = combination
-    option1 = mapping_data[id1][lang]
-    option2 = mapping_data[id2][lang]
+    if index < len(combinations):
 
-    # Get the title and the description of the options
-    # Parse the string to get the title and the description
-    title1,desc1 = option1.split(":",1)
-    title2,desc2 = option2.split(":",1)
-    title1 = title1.strip()
-    title2 = title2.strip()
-    desc1 = desc1.strip().capitalize()
-    desc2 = desc2.strip().capitalize()
+        # Get the two options
+        combination = list(combinations[index])
+        np.random.shuffle(combination)
+        id1,id2 = combination
+        option1 = mapping_data[id1][lang]
+        option2 = mapping_data[id2][lang]
 
-    # Get the images
-    image1 = mapping_images[id1]
-    image2 = mapping_images[id2]
+        # Get the title and the description of the options
+        # Parse the string to get the title and the description
+        title1,desc1 = option1.split(":",1)
+        title2,desc2 = option2.split(":",1)
+        title1 = title1.strip()
+        title2 = title2.strip()
+        desc1 = desc1.strip().capitalize()
+        desc2 = desc2.strip().capitalize()
 
-
-    def validate_option(record):
-
-        query_params = st.experimental_get_query_params()
-        if "utm_source" in query_params:
-            source = query_params["utm_source"][0]
-        else:
-            source = ""
-
-        # Get the result and find the technique id
-        option_left = record["option_left"]
-        option_right = record["option_right"]
-        result = record["result"]
-        n_trials = record["n_trials"]
-        print(record)
-
-        # Get the user information
-        language = st.session_state.language
-        first_name = st.session_state.first_name
-        last_name = st.session_state.last_name
-        email = st.session_state.email
-
-        # Log the result in the database
-        log_result(client,language,first_name,last_name,email,option_left,option_right,n_trials,result,source)
-
-        # Update the session state
-        st.session_state["last_result"] = record
-        st.session_state["index"] += 1
+        # Get the images
+        image1 = mapping_images[id1]
+        image2 = mapping_images[id2]
 
 
-    # Get the button message depending on the language
-    message_button = "Has the most impact" if lang == "EN" else "A le plus d'impact" 
+        def validate_option(record):
 
-    # Display the two options and the images
-    col1,col0,col2 = st.columns([2,1,2])
+            query_params = st.experimental_get_query_params()
+            if "utm_source" in query_params:
+                source = query_params["utm_source"][0]
+            else:
+                source = ""
 
-    with col1:
-        st.image(image1,use_column_width=True)
-    with col0:
-        pass
-    with col2:
-        st.image(image2,use_column_width=True)
+            # Get the result and find the technique id
+            option_left = record["option_left"]
+            option_right = record["option_right"]
+            result = record["result"]
+            n_trials = record["n_trials"]
+            print(record)
+            print(st.session_state["index"])
 
-    col1,col0,col2 = st.columns(3)
+            # Get the user information
+            language = st.session_state.language
+            first_name = st.session_state.first_name
+            last_name = st.session_state.last_name
+            email = st.session_state.email
 
-    with col1:
-        submitted1 = st.button(f"{message_button}",on_click=validate_option, args=({"option_left":id1,"option_right":id2,"n_trials":index,"result":"left"},),key = "button1",use_container_width = True)
-        st.markdown(f"#### {title1}\n{desc1}")
-    with col0:
-        st.button("Same impact" if lang == "EN" else "Même impact",on_click=validate_option, args=({"option_left":id1,"option_right":id2,"n_trials":index,"result":"same"},),key = "button0",use_container_width = True)
-    with col2:
-        submitted2 = st.button(f"{message_button}",on_click=validate_option, args=({"option_left":id1,"option_right":id2,"n_trials":index,"result":"right"},),key = "button2",use_container_width = True)
-        st.markdown(f"#### {title2}\n{desc2}")
+            # Log the result in the database
+            log_result(client,language,first_name,last_name,email,option_left,option_right,n_trials,result,source)
+
+            # Update the session state
+            st.session_state["last_result"] = record
+            st.session_state["index"] += 1
 
 
-    st.progress(index/len(combinations),text=f"{'Progress' if lang == 'EN' else 'Avancement'}: {index}/{len(combinations)}")
-    # st.write(f"{'Progress' if lang == 'EN' else 'Avancement'}: {index}/{len(combinations)}")
+        # Get the button message depending on the language
+        message_button = "Has the most impact" if lang == "EN" else "A le plus d'impact" 
 
+        # Display the two options and the images
+        col1,col0,col2 = st.columns([2,1,2])
+
+        with col1:
+            st.image(image1,use_column_width=True)
+        with col0:
+            pass
+        with col2:
+            st.image(image2,use_column_width=True)
+
+        col1,col0,col2 = st.columns(3)
+
+        with col1:
+            submitted1 = st.button(f"{message_button}",on_click=validate_option, args=({"option_left":id1,"option_right":id2,"n_trials":index,"result":"left"},),key = "button1",use_container_width = True)
+            st.markdown(f"#### {title1}\n{desc1}")
+        with col0:
+            st.button("Same impact" if lang == "EN" else "Même impact",on_click=validate_option, args=({"option_left":id1,"option_right":id2,"n_trials":index,"result":"same"},),key = "button0",use_container_width = True)
+        with col2:
+            submitted2 = st.button(f"{message_button}",on_click=validate_option, args=({"option_left":id1,"option_right":id2,"n_trials":index,"result":"right"},),key = "button2",use_container_width = True)
+            st.markdown(f"#### {title2}\n{desc2}")
+
+
+        st.progress((new_index)/total_combinations,text=f"{'Progress' if lang == 'EN' else 'Avancement'}: {new_index}/{total_combinations}")
+        # st.write(f"{'Progress' if lang == 'EN' else 'Avancement'}: {index}/{len(combinations)}")
+
+    else:
+        st.success("You have completed the questionnaire. Thank you for your participation!" if lang == "EN" else "Vous avez terminé le questionnaire. Merci pour votre participation!")
+        st.balloons()
