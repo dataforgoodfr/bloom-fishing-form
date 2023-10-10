@@ -207,10 +207,10 @@ else:
     if len(existing_combinations) > 0:
         # Filter out combinations from the list if they are in the set of existing combinations
         new_combinations = [combo for combo in combinations if frozenset(combo) not in existing_combinations]
-        new_index = len(combinations) - len(new_combinations)
+        new_index = len(existing_combinations)
+        # new_index = len(combinations) - len(new_combinations)
         combinations = new_combinations
         st.session_state["combinations"] = combinations
-    
     else:
         new_index = 0
 
@@ -219,10 +219,10 @@ else:
     st.write(f"### {content[lang]['title']}")
     st.info(content[lang]["content"])
 
-    if index < len(combinations):
+    if len(combinations) > 0:
 
         # Get the two options
-        combination = list(combinations[index])
+        combination = list(combinations[0])
         np.random.shuffle(combination)
         id1,id2 = combination
         option1 = mapping_data[id1][lang]
@@ -288,12 +288,12 @@ else:
         col1,col0,col2 = st.columns(3)
 
         with col1:
-            submitted1 = st.button(f"{message_button}",on_click=validate_option, args=({"option_left":id1,"option_right":id2,"n_trials":index,"result":"left"},),key = "button1",use_container_width = True)
+            submitted1 = st.button(f"{message_button}",on_click=validate_option, args=({"option_left":id1,"option_right":id2,"n_trials":new_index,"result":"left"},),key = "button1",use_container_width = True)
             st.markdown(f"#### {title1}\n{desc1}")
         with col0:
-            st.button("Same impact" if lang == "EN" else "Même impact",on_click=validate_option, args=({"option_left":id1,"option_right":id2,"n_trials":index,"result":"same"},),key = "button0",use_container_width = True)
+            st.button("Same impact" if lang == "EN" else "Même impact",on_click=validate_option, args=({"option_left":id1,"option_right":id2,"n_trials":new_index,"result":"same"},),key = "button0",use_container_width = True)
         with col2:
-            submitted2 = st.button(f"{message_button}",on_click=validate_option, args=({"option_left":id1,"option_right":id2,"n_trials":index,"result":"right"},),key = "button2",use_container_width = True)
+            submitted2 = st.button(f"{message_button}",on_click=validate_option, args=({"option_left":id1,"option_right":id2,"n_trials":new_index,"result":"right"},),key = "button2",use_container_width = True)
             st.markdown(f"#### {title2}\n{desc2}")
 
 
