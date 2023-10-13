@@ -197,7 +197,7 @@ else:
     st.sidebar.write(user["last_name"])
     st.sidebar.write(user["email"])
 
-    st.sidebar.write("*Version v13102023-0450*")
+    st.sidebar.write("*Version v13102023-0502*")
 
 
     # Load the data and the client for the database using cached resources
