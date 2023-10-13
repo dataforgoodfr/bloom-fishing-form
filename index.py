@@ -231,8 +231,11 @@ else:
     if len(combinations) > 0:
 
         # Get the two options
-        combination = list(combinations[0])
-        np.random.shuffle(combination)
+        if "last_combination" in st.session_state and st.session_state["last_combination"] is not None:
+            combination = st.session_state["last_combination"]
+        else:
+            combination = list(combinations[0])
+            np.random.shuffle(combination)
         id1,id2 = combination
         option1 = mapping_data[id1][lang]
         option2 = mapping_data[id2][lang]
@@ -254,6 +257,7 @@ else:
         def click_button(record):
             st.session_state["lock_widget"] = True
             st.session_state["last_result"] = record
+            st.session_state["last_combination"] = (record["option_left"],record["option_right"])
 
 
         def validate_option(record):
@@ -283,6 +287,7 @@ else:
 
             # Update the session state
             st.session_state["lock_widget"] = False
+            st.session_state["last_combination"] = None
             st.experimental_rerun()
             # st.session_state["last_result"] = record
             # st.session_state["index"] += 1
