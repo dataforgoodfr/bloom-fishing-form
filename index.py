@@ -189,9 +189,16 @@ else:
     st.sidebar.write(user["last_name"])
     st.sidebar.write(user["email"])
 
+    st.sidebar.write("*Version v13102023-0348*")
+
 
     # Load the data and the client for the database using cached resources
     client = get_client_supabase()
+
+    # Initialize session state variable if it doesn't exist
+    if "lock_widget" not in st.session_state:
+        st.session_state.lock_widget = False
+        
     mapping_images,mapping_data,combinations = load_data(lang)
 
     total_combinations = len(combinations)
@@ -219,6 +226,8 @@ else:
     st.write(f"### {content[lang]['title']}")
     st.info(content[lang]["content"])
 
+    print(len(combinations))
+
     if len(combinations) > 0:
 
         # Get the two options
@@ -240,6 +249,11 @@ else:
         # Get the images
         image1 = mapping_images[id1]
         image2 = mapping_images[id2]
+
+
+        def click_button(record):
+            st.session_state["lock_widget"] = True
+            st.session_state["last_result"] = record
 
 
         def validate_option(record):
@@ -268,8 +282,12 @@ else:
             log_result(client,language,first_name,last_name,email,option_left,option_right,n_trials,result,source)
 
             # Update the session state
-            st.session_state["last_result"] = record
-            st.session_state["index"] += 1
+            st.session_state["lock_widget"] = False
+            st.experimental_rerun()
+            # st.session_state["last_result"] = record
+            # st.session_state["index"] += 1
+
+            # st.session_state["lock_widget"] = False
 
 
         # Get the button message depending on the language
@@ -288,14 +306,17 @@ else:
         col1,col0,col2 = st.columns(3)
 
         with col1:
-            submitted1 = st.button(f"{message_button}",on_click=validate_option, args=({"option_left":id1,"option_right":id2,"n_trials":new_index,"result":"left"},),key = "button1",use_container_width = True)
+            submitted1 = st.button(f"{message_button}",on_click=click_button, args=({"option_left":id1,"option_right":id2,"n_trials":new_index,"result":"left"},),key = "button1",use_container_width = True,disabled = st.session_state["lock_widget"])
             st.markdown(f"#### {title1}\n{desc1}")
         with col0:
-            st.button("Same impact" if lang == "EN" else "Même impact",on_click=validate_option, args=({"option_left":id1,"option_right":id2,"n_trials":new_index,"result":"same"},),key = "button0",use_container_width = True)
+            st.button("Same impact" if lang == "EN" else "Même impact",on_click=click_button, args=({"option_left":id1,"option_right":id2,"n_trials":new_index,"result":"same"},),key = "button0",use_container_width = True,disabled = st.session_state["lock_widget"])
         with col2:
-            submitted2 = st.button(f"{message_button}",on_click=validate_option, args=({"option_left":id1,"option_right":id2,"n_trials":new_index,"result":"right"},),key = "button2",use_container_width = True)
+            submitted2 = st.button(f"{message_button}",on_click=click_button, args=({"option_left":id1,"option_right":id2,"n_trials":new_index,"result":"right"},),key = "button2",use_container_width = True,disabled = st.session_state["lock_widget"])
             st.markdown(f"#### {title2}\n{desc2}")
 
+
+        if st.session_state["lock_widget"] == True:
+            validate_option(st.session_state["last_result"])
 
         st.progress((new_index)/total_combinations,text=f"{'Progress' if lang == 'EN' else 'Avancement'}: {new_index}/{total_combinations}")
         # st.write(f"{'Progress' if lang == 'EN' else 'Avancement'}: {index}/{len(combinations)}")
