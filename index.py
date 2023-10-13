@@ -282,11 +282,15 @@ else:
             result = record["result"]
             n_trials = record["n_trials"]
 
-            old_left = st.session_state["last_result"]["option_left"]
-            old_right = st.session_state["last_result"]["option_right"] 
+            if "last_result" in st.session_state:
+                old_left = st.session_state["last_result"]["option_left"]
+                old_right = st.session_state["last_result"]["option_right"]
+            else:
+                old_left = None
+                old_right = None
 
             # Only record if database has been updated
-            if "last_result" not in st.session_state or (old_left,old_right) != (option_left,option_right):
+            if (old_left,old_right) != (option_left,option_right):
 
                 # Get the user information
                 language = st.session_state.language
