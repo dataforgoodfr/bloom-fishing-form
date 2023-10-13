@@ -189,7 +189,7 @@ else:
     st.sidebar.write(user["last_name"])
     st.sidebar.write(user["email"])
 
-    st.sidebar.write("*Version v13102023-0416*")
+    st.sidebar.write("*Version v13102023-0450*")
 
 
     # Load the data and the client for the database using cached resources
@@ -207,7 +207,6 @@ else:
     if "index" not in st.session_state:
         st.session_state["index"] = 0
     index = st.session_state["index"]
-    print("Index:",index)
 
     existing_combinations = get_existing_combinations(user["email"])
 
@@ -230,12 +229,21 @@ else:
 
     if len(combinations) > 0:
 
-        # Get the two options
-        if "last_combination" in st.session_state and st.session_state["last_combination"] is not None:
-            combination = st.session_state["last_combination"]
-        else:
-            combination = list(combinations[0])
-            np.random.shuffle(combination)
+        # # Get the two options
+        # if "last_combination" in st.session_state and st.session_state["last_combination"] is not None:
+        #     combination = st.session_state["last_combination"]
+        # else:
+        #     combination = list(combinations[0])
+        #     np.random.shuffle(combination)
+
+        # # Get the two options
+        # if "last_combination" in st.session_state and st.session_state["last_combination"] is not None:
+        #     combination = st.session_state["last_combination"]
+        # else:
+        combination = list(combinations[0])
+        np.random.shuffle(combination)
+
+
         id1,id2 = combination
         option1 = mapping_data[id1][lang]
         option2 = mapping_data[id2][lang]
@@ -254,10 +262,10 @@ else:
         image2 = mapping_images[id2]
 
 
-        def click_button(record):
-            st.session_state["lock_widget"] = True
-            st.session_state["last_result"] = record
-            st.session_state["last_combination"] = (record["option_left"],record["option_right"])
+        # def click_button(record):
+        #     st.session_state["lock_widget"] = True
+        #     st.session_state["last_result"] = record
+        #     st.session_state["last_combination"] = (record["option_left"],record["option_right"])
 
 
         def validate_option(record):
@@ -273,26 +281,30 @@ else:
             option_right = record["option_right"]
             result = record["result"]
             n_trials = record["n_trials"]
-            print(record)
-            print(st.session_state["index"])
 
-            # Get the user information
-            language = st.session_state.language
-            first_name = st.session_state.first_name
-            last_name = st.session_state.last_name
-            email = st.session_state.email
+            old_left = st.session_state["last_result"]["option_left"]
+            old_right = st.session_state["last_result"]["option_right"] 
 
-            # Log the result in the database
-            log_result(client,language,first_name,last_name,email,option_left,option_right,n_trials,result,source)
+            # Only record if database has been updated
+            if "last_result" not in st.session_state or (old_left,old_right) != (option_left,option_right):
 
-            # Update the session state
-            st.session_state["lock_widget"] = False
-            st.session_state["last_combination"] = None
-            st.experimental_rerun()
-            # st.session_state["last_result"] = record
-            # st.session_state["index"] += 1
+                # Get the user information
+                language = st.session_state.language
+                first_name = st.session_state.first_name
+                last_name = st.session_state.last_name
+                email = st.session_state.email
 
-            # st.session_state["lock_widget"] = False
+                # Log the result in the database
+                log_result(client,language,first_name,last_name,email,option_left,option_right,n_trials,result,source)
+
+                # Update the session state
+                # st.session_state["lock_widget"] = False
+                # st.session_state["last_combination"] = None
+                # st.experimental_rerun()
+                st.session_state["last_result"] = record
+                st.session_state["index"] += 1
+
+                # st.session_state["lock_widget"] = False
 
 
         # Get the button message depending on the language
@@ -311,17 +323,17 @@ else:
         col1,col0,col2 = st.columns(3)
 
         with col1:
-            submitted1 = st.button(f"{message_button}",on_click=click_button, args=({"option_left":id1,"option_right":id2,"n_trials":new_index,"result":"left"},),key = "button1",use_container_width = True,disabled = st.session_state["lock_widget"])
+            submitted1 = st.button(f"{message_button}",on_click=validate_option, args=({"option_left":id1,"option_right":id2,"n_trials":new_index,"result":"left"},),key = "button1",use_container_width = True,disabled = st.session_state["lock_widget"])
             st.markdown(f"#### {title1}\n{desc1}")
         with col0:
-            st.button("Same impact" if lang == "EN" else "Même impact",on_click=click_button, args=({"option_left":id1,"option_right":id2,"n_trials":new_index,"result":"same"},),key = "button0",use_container_width = True,disabled = st.session_state["lock_widget"])
+            st.button("Same impact" if lang == "EN" else "Même impact",on_click=validate_option, args=({"option_left":id1,"option_right":id2,"n_trials":new_index,"result":"same"},),key = "button0",use_container_width = True,disabled = st.session_state["lock_widget"])
         with col2:
-            submitted2 = st.button(f"{message_button}",on_click=click_button, args=({"option_left":id1,"option_right":id2,"n_trials":new_index,"result":"right"},),key = "button2",use_container_width = True,disabled = st.session_state["lock_widget"])
+            submitted2 = st.button(f"{message_button}",on_click=validate_option, args=({"option_left":id1,"option_right":id2,"n_trials":new_index,"result":"right"},),key = "button2",use_container_width = True,disabled = st.session_state["lock_widget"])
             st.markdown(f"#### {title2}\n{desc2}")
 
 
-        if st.session_state["lock_widget"] == True:
-            validate_option(st.session_state["last_result"])
+        # if st.session_state["lock_widget"] == True:
+        #     validate_option(st.session_state["last_result"])
 
         st.progress((new_index)/total_combinations,text=f"{'Progress' if lang == 'EN' else 'Avancement'}: {new_index}/{total_combinations}")
         # st.write(f"{'Progress' if lang == 'EN' else 'Avancement'}: {index}/{len(combinations)}")
