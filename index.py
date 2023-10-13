@@ -105,6 +105,14 @@ def load_data(lang):
     if "combinations" not in st.session_state:
         combinations = list(itertools.combinations(values,2))
         np.random.shuffle(combinations)
+
+        # Shuffle now the pair order
+        combinations_shuffled = []
+        for pair in combinations:
+            pair = list(pair)
+            np.random.shuffle(pair)
+            combinations_shuffled.append(pair)
+        combinations = combinations_shuffled
     else:
         combinations = st.session_state.combinations
 
@@ -241,9 +249,6 @@ else:
         #     combination = st.session_state["last_combination"]
         # else:
         combination = list(combinations[0])
-        np.random.shuffle(combination)
-
-
         id1,id2 = combination
         option1 = mapping_data[id1][lang]
         option2 = mapping_data[id2][lang]
